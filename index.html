@@ -135,6 +135,14 @@
       .mini p,.mini li{font-size:14.5px;color:var(--ink2)}
       .mini ul{margin:0;padding-left:18px}
       .src-note{font-size:13px;color:var(--ink2);border-top:1px dashed var(--line);padding-top:12px;margin-top:14px;word-break:break-word}
+      /* AI generation status (profile view) */
+      .ai-status{display:none;border-radius:14px;padding:13px 16px;font-size:14.5px;margin:0 0 16px;line-height:1.55}
+      .ai-status.show{display:block}
+      .ai-status.load{background:var(--navy-soft)}
+      .ai-status.fallback{background:var(--warn-soft)}
+      .spin{display:inline-block;width:14px;height:14px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;vertical-align:-2px;margin-right:7px;animation:mlspin .8s linear infinite}
+      @keyframes mlspin{to{transform:rotate(360deg)}}
+      @media (prefers-reduced-motion: reduce){.spin{animation:none}}
       /* interview room - single column, sticky answer actions on mobile */
       .room-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;position:sticky;top:66px;z-index:40;background:var(--bg);padding:10px 0}
       .timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:7px 16px}
@@ -401,7 +409,7 @@
                 <button type="button" data-v="business" data-i18n="level_business">Business trở lên</button>
               </div></div>
             <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center" data-i18n="form_submit">Soạn hồ sơ công ty &amp; bộ câu hỏi →</button>
-            <p class="hint" style="text-align:center;margin-top:10px" data-i18n="form_note">Hồ sơ buổi luyện được soạn ngay trên trình duyệt. Khi bạn trả lời, câu trả lời được gửi tới dịch vụ chấm điểm AI Gemini qua máy chủ của MensetsuLab (khóa API nằm trên máy chủ, không nằm trong trang web); nếu không kết nối được, hệ thống tự chấm ngay trên máy của bạn.</p>
+            <p class="hint" style="text-align:center;margin-top:10px" data-i18n="form_note">Khi bạn xác nhận hồ sơ, thông tin bạn nhập được gửi qua máy chủ của MensetsuLab để AI Gemini sinh hồ sơ và bộ câu hỏi riêng cho đúng công ty đó (khóa API nằm trên máy chủ, không nằm trong trang web). Câu trả lời của bạn cũng được AI Gemini chấm qua máy chủ này. Nếu không kết nối được AI, hệ thống tự dùng bộ câu hỏi mẫu theo ngành và chấm ngay trên máy của bạn.</p>
           </form>
         </div>
       </div>
@@ -413,7 +421,9 @@
         <button class="btn btn-ghost btn-sm" data-go="create" data-i18n="back_edit">← Sửa thông tin đã nhập</button>
         <h2 class="sec" style="margin-top:18px" data-i18n="prof_h">Bước 2 — Hồ sơ công ty do AI soạn</h2>
         <p class="sec-sub" data-i18n="prof_sub">Kiểm tra kỹ trước khi luyện. Nếu có điểm nào chưa đúng với công ty thật, quay lại sửa ở bước 1 — luyện trên thông tin sai là mất buổi thử.</p>
+        <div class="ai-status" id="ai-gen-status" role="status" aria-live="polite"></div>
         <div class="card" style="padding:20px" id="profile-card"></div>
+        <div class="card" id="ai-block" style="padding:20px;display:none;margin-top:16px"></div>
         <div class="action-row">
           <button class="btn btn-primary" id="btn-start-room" data-i18n="btn_start_room">Xác nhận — vào phòng luyện 30 phút</button>
           <button class="btn btn-ghost" data-go="create" data-i18n="btn_back_edit">Quay lại sửa</button>
@@ -477,7 +487,7 @@
 
     <div class="mobile-cta" id="mobile-cta"><button class="btn btn-primary" data-go="create" data-i18n="mcta_try">🎯 Luyện thử miễn phí 30 phút</button><a class="btn btn-ghost" href="#pricing" style="flex:0 0 auto" data-i18n="nav_pricing">Bảng giá</a></div>
     <footer>
-      <div class="wrap" data-i18n="footer_text">MensetsuLab — for foreign professionals in Japan, in every industry (Việt Nam · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India &amp; more). Bản dùng thử: hồ sơ và câu hỏi được soạn ngay trên trình duyệt; câu trả lời được AI Gemini chấm qua máy chủ của MensetsuLab (không kết nối được thì chấm ngay trên máy). Câu hỏi được soạn từ thông tin bạn nhập; hãy luôn đối chiếu thông tin công ty với website chính thức trước buổi phỏng vấn thật.</div>
+      <div class="wrap" data-i18n="footer_text">MensetsuLab — for foreign professionals in Japan, in every industry (Việt Nam · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India &amp; more). Bản dùng thử: hồ sơ và bộ câu hỏi riêng theo công ty được AI Gemini sinh từ thông tin bạn nhập qua máy chủ của MensetsuLab, câu trả lời cũng được AI Gemini chấm qua máy chủ này (không kết nối được thì dùng bộ câu hỏi mẫu theo ngành và chấm ngay trên máy). Hãy luôn đối chiếu thông tin công ty với website chính thức trước buổi phỏng vấn thật.</div>
     </footer>
     <div class="toast" id="toast"></div>
 
@@ -485,7 +495,7 @@
     (function(){
       "use strict";
       var $ = function(id){ return document.getElementById(id); };
-      var state = { profile:null, questions:[], idx:0, answers:[], timerId:null, remain:1800, startedAt:null, history:[], fbIdx:-1 };
+      var state = { profile:null, questions:[], idx:0, answers:[], timerId:null, remain:1800, startedAt:null, history:[], fbIdx:-1, aiSet:null, genSeq:0 };
 
       /* ================= i18n: full UI dictionary, 4 languages =================
          Interview questions and keigo terms stay Japanese on purpose (real interviews are in Japanese).
@@ -515,13 +525,14 @@
         if (f) f.value = code;
         applyI18n();
         if (state.profile) renderProfile(state.profile);
+        if (state.aiSet) renderAiBlock();
         if (state.answers.length) renderTranscript();
         if (state.history.length) renderHistory();
         if (state.questions.length && state.idx < state.questions.length){
           var q = state.questions[state.idx];
           $("q-vi").textContent = explainFor(q);
           $("q-count").textContent = F("q_count", { n: state.idx+1, t: state.questions.length });
-          $("q-topic").textContent = q.topic + " — " + F("q_count", { n: state.idx+1, t: state.questions.length });
+          $("q-topic").textContent = q.topic + (q.ai ? " · AI" : "") + " — " + F("q_count", { n: state.idx+1, t: state.questions.length });
         }
       }
       var I18N = { vi: {
@@ -560,16 +571,16 @@
         f_jdtext:"Dán nội dung JD (nếu có)", ph_jdtext:"Dán phần mô tả công việc, yêu cầu kỹ năng (必須スキル・歓迎スキル) trong tin tuyển dụng…", f_jdtext_hint:"Hệ thống trích xuất kỹ năng và yêu cầu công việc từ đây để ra câu hỏi chuyên môn đúng JD.",
         f_exp:"Tóm tắt kinh nghiệm của bạn", ph_exp:"Ví dụ: 3 năm backend Java tại công ty SIer, từng lead team 4 người…",
         f_weak:"Phần bạn yếu / lo nhất", ph_weak:"Ví dụ: Nói lý do chuyển việc hay bị vòng vo, keigo chưa tự tin…",
-        f_level:"Trình độ tiếng Nhật", level_business:"Business trở lên", form_submit:"Soạn hồ sơ công ty & bộ câu hỏi →", form_note:"Hồ sơ buổi luyện được soạn ngay trên trình duyệt. Khi bạn trả lời, câu trả lời được gửi tới dịch vụ chấm điểm AI Gemini qua máy chủ của MensetsuLab (khóa API nằm trên máy chủ, không nằm trong trang web); nếu không kết nối được, hệ thống tự chấm ngay trên máy của bạn.",
+        f_level:"Trình độ tiếng Nhật", level_business:"Business trở lên", form_submit:"Soạn hồ sơ công ty & bộ câu hỏi →", form_note:"Khi bạn xác nhận hồ sơ, thông tin bạn nhập được gửi qua máy chủ của MensetsuLab để AI Gemini sinh hồ sơ và bộ câu hỏi riêng cho đúng công ty đó (khóa API nằm trên máy chủ, không nằm trong trang web). Câu trả lời của bạn cũng được AI Gemini chấm qua máy chủ này. Nếu không kết nối được AI, hệ thống tự dùng bộ câu hỏi mẫu theo ngành và chấm ngay trên máy của bạn.",
         back_edit:"← Sửa thông tin đã nhập", prof_h:"Bước 2 — Hồ sơ công ty do AI soạn", prof_sub:"Kiểm tra kỹ trước khi luyện. Nếu có điểm nào chưa đúng với công ty thật, quay lại sửa ở bước 1 — luyện trên thông tin sai là mất buổi thử.", btn_start_room:"Xác nhận — vào phòng luyện 30 phút", btn_back_edit:"Quay lại sửa",
         btn_end:"Kết thúc & xem báo cáo", btn_listen:"🔊 Nghe câu hỏi", btn_hint:"Xem gợi ý trả lời", answer_label:"Câu trả lời của bạn (tiếng Nhật)", answer_ph:"Trả lời bằng tiếng Nhật như đang phỏng vấn thật… Bấm nút micro để nói, hoặc gõ trực tiếp.", mic_start:"🎤 Nói để trả lời", mic_stop:"⏹ Đang nghe… bấm để dừng", btn_submit_answer:"Trả lời & nhận câu tiếp theo →", btn_skip:"Bỏ qua câu này",
         report_h:"Báo cáo buổi luyện", score_total:"Điểm tổng / 100", h_fixes:"3 việc cần sửa trước ngày phỏng vấn", h_detail:"Chi tiết từng câu trả lời", btn_buy2:"Luyện sâu tiếp — gói 4.980 yên / 5 buổi", btn_home:"Về trang chủ", btn_download:"Tải báo cáo (.txt)",
         mcta_try:"🎯 Luyện thử miễn phí 30 phút",
-        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry (Việt Nam · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India & more). Bản dùng thử: hồ sơ và câu hỏi được soạn ngay trên trình duyệt; câu trả lời được AI Gemini chấm qua máy chủ của MensetsuLab (không kết nối được thì chấm ngay trên máy). Câu hỏi được soạn từ thông tin bạn nhập; hãy luôn đối chiếu thông tin công ty với website chính thức trước buổi phỏng vấn thật.",
+        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry (Việt Nam · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India & more). Bản dùng thử: hồ sơ và bộ câu hỏi riêng theo công ty được AI Gemini sinh từ thông tin bạn nhập qua máy chủ của MensetsuLab, câu trả lời cũng được AI Gemini chấm qua máy chủ này (không kết nối được thì dùng bộ câu hỏi mẫu theo ngành và chấm ngay trên máy). Hãy luôn đối chiếu thông tin công ty với website chính thức trước buổi phỏng vấn thật.",
         err_required:"Hãy điền đủ 4 mục bắt buộc: quốc tịch, tên công ty, ngành nghề và vị trí ứng tuyển.",
         q_word:"Câu", q_count:"Câu {n} / {t}", q_label:"Câu {n}", q_asked:"Hỏi:", q_you:"Bạn trả lời:", q_skipped_tag:"đã bỏ qua", q_skipped_paren:"(bỏ qua)",
         lbl_content:"Nội dung", lbl_keigo:"Keigo", lbl_fix:"Bản sửa keigo:",
-        fb_h:"Nhận xét nhanh", ai_grading:"AI Gemini đang chấm lại câu trả lời này — điểm sẽ tự cập nhật khi có kết quả…", ai_badge:"Đã chấm bằng AI Gemini", ai_comment_h:"Nhận xét của AI", ai_fix_h:"Bản sửa keigo của AI:", fb_fix_auto:"Bản sửa keigo (tự động sửa các chỗ suồng sã):", fb_deep:"Gói luyện sâu sẽ có bản sửa tay chi tiết từng câu, kèm đáp án mẫu hoàn chỉnh.", hint_label:"Gợi ý:",
+        fb_h:"Nhận xét nhanh", ai_grading:"AI Gemini đang chấm lại câu trả lời này — điểm sẽ tự cập nhật khi có kết quả…", ai_badge:"Đã chấm bằng AI Gemini", ai_comment_h:"Nhận xét của AI", ai_fix_h:"Bản sửa keigo của AI:", ai_gen_loading:"AI đang tạo bộ câu hỏi riêng cho công ty này…", ai_dossier_badge:"Hồ sơ & bộ câu hỏi do AI Gemini sinh riêng cho công ty này", ai_summary_h:"Tóm tắt công ty (chỉ từ thông tin bạn cung cấp)", ai_focus_h:"Điểm trọng tâm công ty này sẽ xoáy khi phỏng vấn", ai_unknown_h:"Chưa rõ — AI không đoán thay bạn", ai_questions_h:"Bộ câu hỏi AI sinh riêng (8 câu)", ai_fallback_note:"Chưa kết nối được AI ở bước này — hệ thống dùng tạm bộ câu hỏi mẫu theo ngành của bạn. Bạn vẫn luyện bình thường, và chấm điểm AI vẫn hoạt động khi bạn trả lời.", fb_fix_auto:"Bản sửa keigo (tự động sửa các chỗ suồng sã):", fb_deep:"Gói luyện sâu sẽ có bản sửa tay chi tiết từng câu, kèm đáp án mẫu hoàn chỉnh.", hint_label:"Gợi ý:",
         toast_timeup:"Hết 30 phút của buổi thử miễn phí — đang tổng kết báo cáo.",
         toast_need_answer:"Hãy trả lời bằng tiếng Nhật (nói hoặc gõ) — hoặc bấm Bỏ qua nếu bí hẳn.",
         toast_profile_done:"Đã soạn hồ sơ cho {company} — kiểm tra rồi xác nhận để vào phòng luyện.",
@@ -643,16 +654,16 @@
         f_jdtext:"Paste the JD text (if you have it)", ph_jdtext:"Paste the job description and required skills (必須スキル・歓迎スキル) from the job post…", f_jdtext_hint:"The system extracts skills and job requirements from here to generate professional questions that match your JD.",
         f_exp:"Summary of your experience", ph_exp:"e.g. 3 years of backend Java at an SIer, led a team of 4…",
         f_weak:"Your weakest / most worrying area", ph_weak:"e.g. My reason for changing jobs tends to ramble; I'm not confident in keigo…",
-        f_level:"Japanese level", level_business:"Business or above", form_submit:"Build company profile & question set →", form_note:"Your practice profile is built right in this browser. When you answer, the answer is sent to the Gemini AI grading service via the MensetsuLab server (the API key lives on the server, never in this page); if it can't connect, grading happens on your device instead.",
+        f_level:"Japanese level", level_business:"Business or above", form_submit:"Build company profile & question set →", form_note:"When you confirm your profile, the details you entered are sent via the MensetsuLab server so Gemini AI can generate a dossier and a question set tailored to that exact company (the API key lives on the server, never in this page). Your answers are graded by Gemini AI through the same server. If the AI can't be reached, the page falls back to the industry template question set and grades on your device instead.",
         back_edit:"← Edit your input", prof_h:"Step 2 — Company profile built for you", prof_sub:"Check it carefully before practicing. If anything doesn't match the real company, go back and fix it in step 1 — practicing on wrong information wastes your trial.", btn_start_room:"Confirm — enter the 30-minute practice room", btn_back_edit:"Back to edit",
         btn_end:"End & view report", btn_listen:"🔊 Listen to the question", btn_hint:"Show answer hint", answer_label:"Your answer (in Japanese)", answer_ph:"Answer in Japanese as if it were the real interview… Tap the mic button to speak, or type directly.", mic_start:"🎤 Speak your answer", mic_stop:"⏹ Listening… tap to stop", btn_submit_answer:"Answer & next question →", btn_skip:"Skip this question",
         report_h:"Session report", score_total:"Total score / 100", h_fixes:"3 things to fix before your interview", h_detail:"Answer-by-answer details", btn_buy2:"Go deeper — ¥4,980 / 5 sessions", btn_home:"Back to home", btn_download:"Download report (.txt)",
         mcta_try:"🎯 Free 30-min trial",
-        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry (Vietnam · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India & more). Trial version: profiles and questions are built in your browser; answers are graded by Gemini AI via the MensetsuLab server (on-device grading if it can't connect). Questions are built from the information you enter; always double-check company details on the official website before the real interview.",
+        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry (Vietnam · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India & more). Trial version: the company dossier and tailored question set are generated by Gemini AI from the information you enter, via the MensetsuLab server; answers are graded by Gemini AI through the same server (if it can't connect, the industry template set is used and grading happens on your device). Always double-check company details on the official website before the real interview.",
         err_required:"Please fill in all 4 required fields: your country, company name, industry and position.",
         q_word:"Question", q_count:"Question {n} / {t}", q_label:"Question {n}", q_asked:"Q:", q_you:"Your answer:", q_skipped_tag:"skipped", q_skipped_paren:"(skipped)",
         lbl_content:"Content", lbl_keigo:"Keigo", lbl_fix:"Keigo-corrected version:",
-        fb_h:"Quick feedback", ai_grading:"Gemini AI is re-grading this answer — your score will update automatically when it returns…", ai_badge:"Graded by Gemini AI", ai_comment_h:"AI feedback", ai_fix_h:"AI keigo correction:", fb_fix_auto:"Keigo correction (casual slips fixed automatically):", fb_deep:"The deep-practice plan includes hand-edited corrections for every answer, plus complete model answers.", hint_label:"Hint:",
+        fb_h:"Quick feedback", ai_grading:"Gemini AI is re-grading this answer — your score will update automatically when it returns…", ai_badge:"Graded by Gemini AI", ai_comment_h:"AI feedback", ai_fix_h:"AI keigo correction:", ai_gen_loading:"AI is creating a question set tailored to this company…", ai_dossier_badge:"Company dossier & questions generated by Gemini AI specifically for this company", ai_summary_h:"Company summary (from the information you provided only)", ai_focus_h:"What this company will focus on in the interview", ai_unknown_h:"Not clear yet — the AI does not guess for you", ai_questions_h:"Your AI-generated question set (8 questions)", ai_fallback_note:"Couldn't reach the AI for this step — using the template question set for your industry instead. You can practice as usual, and AI grading still works when you answer.", fb_fix_auto:"Keigo correction (casual slips fixed automatically):", fb_deep:"The deep-practice plan includes hand-edited corrections for every answer, plus complete model answers.", hint_label:"Hint:",
         toast_timeup:"Your free 30 minutes are up — building your report.",
         toast_need_answer:"Answer in Japanese (speak or type) — or tap Skip if you're truly stuck.",
         toast_profile_done:"Profile built for {company} — review it, then confirm to enter the practice room.",
@@ -726,16 +737,16 @@
         f_jdtext:"粘贴 JD 文本（如有）", ph_jdtext:"粘贴招聘启事中的职位说明与技能要求（必須スキル・歓迎スキル）…", f_jdtext_hint:"系统会从中提取技能与工作要求，生成贴合 JD 的专业问题。",
         f_exp:"你的经验简介", ph_exp:"例：在 SIer 做过 3 年 Java 后端，曾带领 4 人团队…",
         f_weak:"你最薄弱 / 最担心的部分", ph_weak:"例：说跳槽理由时容易绕圈子，敬语不太自信…",
-        f_level:"日语水平", level_business:"商务及以上", form_submit:"生成公司档案与题库 →", form_note:"练习档案在本浏览器中生成。作答时，回答会经由 MensetsuLab 服务器发送到 Gemini AI 评分服务（API 密钥保存在服务器上，不在本页面中）；如果无法连接，则在本机评分。",
+        f_level:"日语水平", level_business:"商务及以上", form_submit:"生成公司档案与题库 →", form_note:"确认档案时，你输入的信息会经由 MensetsuLab 服务器发送给 Gemini AI，为这家公司专属生成档案与题目（API 密钥保存在服务器上，不在本页面中）。你的回答也经由同一服务器由 Gemini AI 评分。如果无法连接 AI，则改用按行业准备的模板题目并在本机评分。",
         back_edit:"← 修改已输入的信息", prof_h:"第 2 步 — 为你生成的公司档案", prof_sub:"练习前请仔细核对。如有与真实公司不符之处，返回第 1 步修改 — 在错误信息上练习会浪费试练机会。", btn_start_room:"确认 — 进入 30 分钟练习室", btn_back_edit:"返回修改",
         btn_end:"结束并查看报告", btn_listen:"🔊 听题目", btn_hint:"查看作答提示", answer_label:"你的回答（日语）", answer_ph:"像真实面试一样用日语回答… 点击麦克风按钮说话，或直接打字。", mic_start:"🎤 语音作答", mic_stop:"⏹ 正在聆听… 点击停止", btn_submit_answer:"提交并下一题 →", btn_skip:"跳过此题",
         report_h:"练习报告", score_total:"总分 / 100", h_fixes:"面试前必须修改的 3 件事", h_detail:"每道题的详细情况", btn_buy2:"继续深练 — 4,980 日元 / 5 场", btn_home:"返回首页", btn_download:"下载报告 (.txt)",
         mcta_try:"🎯 免费试练 30 分钟",
-        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry（越南 · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India 等）。试用版：档案和题目在浏览器中生成；回答由 Gemini AI 经 MensetsuLab 服务器评分（无法连接时在本机评分）。题目根据你输入的信息生成；真实面试前，请务必在公司官网核对信息。",
+        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry（越南 · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India 等）。试用版：公司档案与专属题目由 Gemini AI 根据你输入的信息经 MensetsuLab 服务器生成，回答也经同一服务器由 Gemini AI 评分（无法连接时改用行业模板题目并在本机评分）。真实面试前，请务必在公司官网核对信息。",
         err_required:"请填满 4 个必填项：国籍、公司名称、行业和应聘职位。",
         q_word:"题", q_count:"第 {n} 题 / 共 {t} 题", q_label:"第 {n} 题", q_asked:"问：", q_you:"你的回答：", q_skipped_tag:"已跳过", q_skipped_paren:"（已跳过）",
         lbl_content:"内容", lbl_keigo:"敬语", lbl_fix:"敬语修正版：",
-        fb_h:"快速点评", ai_grading:"Gemini AI 正在重新评分这条回答 — 结果返回后分数会自动更新…", ai_badge:"已由 Gemini AI 评分", ai_comment_h:"AI 点评", ai_fix_h:"AI 敬语修正：", fb_fix_auto:"敬语修正（自动修正口语化表达）：", fb_deep:"深度练习包含有逐题人工级修正的版本，以及完整的示范答案。", hint_label:"提示：",
+        fb_h:"快速点评", ai_grading:"Gemini AI 正在重新评分这条回答 — 结果返回后分数会自动更新…", ai_badge:"已由 Gemini AI 评分", ai_comment_h:"AI 点评", ai_fix_h:"AI 敬语修正：", ai_gen_loading:"AI 正在为这家公司生成专属题目…", ai_dossier_badge:"由 Gemini AI 为这家公司专属生成的档案与题目", ai_summary_h:"公司概要（仅依据你提供的信息）", ai_focus_h:"这家公司面试时会重点追问的方面", ai_unknown_h:"尚不明确 — AI 不会替你猜测", ai_questions_h:"AI 专属题目（8 题）", ai_fallback_note:"这一步暂时无法连接 AI — 先使用按你的行业准备的模板题目。你可以照常练习，回答时 AI 评分仍可使用。", fb_fix_auto:"敬语修正（自动修正口语化表达）：", fb_deep:"深度练习包含有逐题人工级修正的版本，以及完整的示范答案。", hint_label:"提示：",
         toast_timeup:"免费 30 分钟已用完 — 正在生成报告。",
         toast_need_answer:"请用日语回答（说或打字）— 实在想不出来可以点“跳过”。",
         toast_profile_done:"已为 {company} 生成档案 — 请核对后确认进入练习室。",
@@ -809,16 +820,16 @@
         f_jdtext:"JD 텍스트 붙여넣기 (있는 경우)", ph_jdtext:"채용 공고의 업무 내용과 필요 스킬(必須スキル・歓迎スキル)을 붙여 넣으세요…", f_jdtext_hint:"여기서 스킬과 업무 요건을 추출해 JD에 맞는 전문 질문을 만듭니다.",
         f_exp:"내 경력 요약", ph_exp:"예: SIer에서 Java 백엔드 3년, 4명 팀 리드 경험…",
         f_weak:"가장 약하거나 걱정되는 부분", ph_weak:"예: 이직 이유를 말할 때 자꾸 횡설수설해요, 경어가 자신이 없어요…",
-        f_level:"일본어 수준", level_business:"비즈니스 이상", form_submit:"회사 프로필 & 질문 세트 만들기 →", form_note:"연습 프로필은 이 브라우저에서 만들어집니다. 답변하면 답변 내용이 MensetsuLab 서버를 거쳐 Gemini AI 채점 서비스로 전송됩니다(API 키는 서버에만 있고 이 페이지에는 없습니다). 연결이 안 되면 기기에서 바로 채점합니다.",
+        f_level:"일본어 수준", level_business:"비즈니스 이상", form_submit:"회사 프로필 & 질문 세트 만들기 →", form_note:"프로필을 확인하면 입력한 정보가 MensetsuLab 서버를 거쳐 Gemini AI로 전송되어, 그 회사 전용 프로필과 질문 세트가 생성됩니다(API 키는 서버에만 있고 이 페이지에는 없습니다). 답변도 같은 서버를 거쳐 Gemini AI가 채점합니다. AI에 연결되지 않으면 업계별 템플릿 질문 세트를 사용하고 기기에서 채점합니다.",
         back_edit:"← 입력 내용 수정", prof_h:"2단계 — 만들어진 회사 프로필", prof_sub:"연습 전에 꼼꼼히 확인하세요. 실제 회사와 다른 점이 있으면 1단계로 돌아가 수정하세요 — 잘못된 정보로 연습하면 체험을 낭비합니다.", btn_start_room:"확인 — 30분 연습실 입장", btn_back_edit:"수정하러 돌아가기",
         btn_end:"종료하고 리포트 보기", btn_listen:"🔊 질문 듣기", btn_hint:"답변 힌트 보기", answer_label:"당신의 답변 (일본어)", answer_ph:"실제 면접처럼 일본어로 답하세요… 마이크 버튼을 눌러 말하거나 직접 입력하세요.", mic_start:"🎤 말로 답하기", mic_stop:"⏹ 듣는 중… 눌러서 중지", btn_submit_answer:"답변하고 다음 질문으로 →", btn_skip:"이 질문 건너뛰기",
         report_h:"연습 리포트", score_total:"총점 / 100", h_fixes:"면접 전에 고쳐야 할 3가지", h_detail:"질문별 상세", btn_buy2:"심화로 계속 — 4,980엔 / 5회", btn_home:"홈으로", btn_download:"리포트 다운로드 (.txt)",
         mcta_try:"🎯 30분 무료 체험",
-        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry (베트남 · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India 외). 체험판: 프로필과 질문은 브라우저에서 만들어지고, 답변은 MensetsuLab 서버를 통해 Gemini AI가 채점합니다(연결이 안 되면 기기에서 채점). 질문은 입력한 정보로 만들어지므로, 실제 면접 전에 회사 공식 웹사이트에서 정보를 꼭 다시 확인하세요.",
+        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry (베트남 · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India 외). 체험판: 회사 프로필과 전용 질문 세트는 입력한 정보를 바탕으로 MensetsuLab 서버를 거쳐 Gemini AI가 생성하고, 답변도 같은 서버를 통해 Gemini AI가 채점합니다(연결이 안 되면 업계별 템플릿 질문을 쓰고 기기에서 채점). 실제 면접 전에 회사 공식 웹사이트에서 정보를 꼭 다시 확인하세요.",
         err_required:"필수 4개 항목(국적, 회사명, 업계, 응시 직무)을 모두 입력하세요.",
         q_word:"질문", q_count:"질문 {n} / {t}", q_label:"질문 {n}", q_asked:"질문:", q_you:"당신의 답변:", q_skipped_tag:"건너뜀", q_skipped_paren:"(건너뜀)",
         lbl_content:"내용", lbl_keigo:"경어", lbl_fix:"경어 교정본:",
-        fb_h:"빠른 피드백", ai_grading:"Gemini AI가 이 답변을 다시 채점 중입니다 — 결과가 오면 점수가 자동으로 바뀝니다…", ai_badge:"Gemini AI 채점 완료", ai_comment_h:"AI 코멘트", ai_fix_h:"AI 경어 교정:", fb_fix_auto:"경어 교정 (구어체로 새어 나온 부분 자동 교정):", fb_deep:"심화 플랜에는 답변마다 꼼꼼히 다듬은 교정본과 완성된 모범 답안이 포함됩니다.", hint_label:"힌트:",
+        fb_h:"빠른 피드백", ai_grading:"Gemini AI가 이 답변을 다시 채점 중입니다 — 결과가 오면 점수가 자동으로 바뀝니다…", ai_badge:"Gemini AI 채점 완료", ai_comment_h:"AI 코멘트", ai_fix_h:"AI 경어 교정:", ai_gen_loading:"AI가 이 회사 전용 질문 세트를 만들고 있습니다…", ai_dossier_badge:"Gemini AI가 이 회사 전용으로 생성한 프로필과 질문", ai_summary_h:"회사 개요 (입력하신 정보만으로 작성)", ai_focus_h:"이 회사가 면접에서 집중적으로 물을 포인트", ai_unknown_h:"아직 불명확 — AI가 대신 추측하지 않습니다", ai_questions_h:"AI 전용 질문 세트 (8문항)", ai_fallback_note:"이 단계에서 AI에 연결하지 못했습니다 — 업계별 템플릿 질문 세트를 임시로 사용합니다. 평소대로 연습할 수 있으며, 답변 시 AI 채점은 계속 작동합니다.", fb_fix_auto:"경어 교정 (구어체로 새어 나온 부분 자동 교정):", fb_deep:"심화 플랜에는 답변마다 꼼꼼히 다듬은 교정본과 완성된 모범 답안이 포함됩니다.", hint_label:"힌트:",
         toast_timeup:"무료 30분이 끝났습니다 — 리포트를 만들고 있습니다.",
         toast_need_answer:"일본어로 답하세요 (말하거나 입력) — 정말 모르겠으면 건너뛰기를 누르세요.",
         toast_profile_done:"{company} 프로필이 완성됐습니다 — 확인한 뒤 연습실에 입장하세요.",
@@ -892,16 +903,16 @@
         f_jdtext:"JDのテキストを貼り付け（あれば）", ph_jdtext:"求人票の業務内容と必須スキル・歓迎スキルを貼り付けてください…", f_jdtext_hint:"ここからスキルと業務要件を抽出し、JDに合った専門質問を作成します。",
         f_exp:"あなたの経歴の要約", ph_exp:"例：SIerでJavaバックエンド3年、4名チームのリード経験…",
         f_weak:"最も弱い／不安な部分", ph_weak:"例：転職理由を話すと話が回りくどくなりがち、敬語に自信がない…",
-        f_level:"日本語レベル", level_business:"ビジネス以上", form_submit:"会社プロフィール＆質問セットを作成 →", form_note:"練習プロフィールはこのブラウザで作成されます。回答すると、回答内容はMensetsuLabのサーバー経由でGemini AI採点サービスに送信されます（APIキーはサーバー側にのみあり、このページには含まれません）。接続できない場合は端末上で採点します。",
+        f_level:"日本語レベル", level_business:"ビジネス以上", form_submit:"会社プロフィール＆質問セットを作成 →", form_note:"プロフィールを確認すると、入力内容はMensetsuLabのサーバー経由でGemini AIに送信され、その会社専用のプロフィールと質問セットが生成されます（APIキーはサーバー側にのみあり、このページには含まれません）。回答も同じサーバー経由でGemini AIが採点します。AIに接続できない場合は、業界別のテンプレート質問セットを使い、端末上で採点します。",
         back_edit:"← 入力内容を修正", prof_h:"ステップ2 — 作成された会社プロフィール", prof_sub:"練習前にしっかり確認してください。実際の会社と違う点があればステップ1に戻って修正を — 間違った情報での練習は体験の無駄になります。", btn_start_room:"確認 — 30分の練習室へ入る", btn_back_edit:"修正に戻る",
         btn_end:"終了してレポートを見る", btn_listen:"🔊 質問を聞く", btn_hint:"回答のヒントを見る", answer_label:"あなたの回答（日本語）", answer_ph:"本番の面接のように日本語で答えてください… マイクボタンで話すか、直接入力してください。", mic_start:"🎤 声で回答する", mic_stop:"⏹ 聞き取り中… タップで停止", btn_submit_answer:"回答して次の質問へ →", btn_skip:"この質問をスキップ",
         report_h:"練習レポート", score_total:"総合スコア／100", h_fixes:"面接日までに直すべき3つのこと", h_detail:"質問ごとの詳細", btn_buy2:"さらに深く練習 — 4,980円／5回", btn_home:"ホームに戻る", btn_download:"レポートをダウンロード（.txt）",
         mcta_try:"🎯 30分無料体験",
-        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry（ベトナム · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India ほか）。体験版：プロフィールと質問はブラウザで作成され、回答はMensetsuLabサーバー経由でGemini AIが採点します（接続できない場合は端末で採点）。質問は入力した情報から作られます — 本番の面接前に、会社の公式サイトで情報を必ず再確認してください。",
+        footer_text:"MensetsuLab — for foreign professionals in Japan, in every industry（ベトナム · 中国 · 한국 · Nepal · Myanmar · Philippines · Indonesia · India ほか）。体験版：会社のプロフィールと専用質問セットは、入力した情報をもとにMensetsuLabサーバー経由でGemini AIが生成し、回答も同じサーバー経由でGemini AIが採点します（接続できない場合は業界別テンプレート質問を使い、端末で採点）。本番の面接前に、会社の公式サイトで情報を必ず再確認してください。",
         err_required:"必須の4項目（国籍、会社名、業界、応募職種）をすべて入力してください。",
         q_word:"質問", q_count:"質問 {n} / {t}", q_label:"質問 {n}", q_asked:"質問：", q_you:"あなたの回答：", q_skipped_tag:"スキップ済み", q_skipped_paren:"（スキップ）",
         lbl_content:"内容", lbl_keigo:"敬語", lbl_fix:"敬語の修正版：",
-        fb_h:"クイックフィードバック", ai_grading:"Gemini AIがこの回答を再採点中です — 結果が届くとスコアが自動で更新されます…", ai_badge:"Gemini AIが採点済み", ai_comment_h:"AIコメント", ai_fix_h:"AIによる敬語の修正：", fb_fix_auto:"敬語の修正（口語表現を自動で修正）：", fb_deep:"集中練習プランには、回答ごとに丁寧に直した修正版と、完成した模範回答が含まれます。", hint_label:"ヒント：",
+        fb_h:"クイックフィードバック", ai_grading:"Gemini AIがこの回答を再採点中です — 結果が届くとスコアが自動で更新されます…", ai_badge:"Gemini AIが採点済み", ai_comment_h:"AIコメント", ai_fix_h:"AIによる敬語の修正：", ai_gen_loading:"AIがこの会社専用の質問セットを作成中です…", ai_dossier_badge:"Gemini AIがこの会社専用に生成したプロフィールと質問", ai_summary_h:"会社の概要（入力いただいた情報のみから作成）", ai_focus_h:"この会社が面接で深掘りするポイント", ai_unknown_h:"まだ不明 — AIが推測で埋めることはありません", ai_questions_h:"専用質問セット（8問）", ai_fallback_note:"このステップではAIに接続できませんでした — 業界別のテンプレート質問セットを代わりに使います。通常どおり練習でき、回答時のAI採点は引き続き利用できます。", fb_fix_auto:"敬語の修正（口語表現を自動で修正）：", fb_deep:"集中練習プランには、回答ごとに丁寧に直した修正版と、完成した模範回答が含まれます。", hint_label:"ヒント：",
         toast_timeup:"無料30分が終了しました — レポートを作成しています。",
         toast_need_answer:"日本語で回答してください（話すか入力）— 本当に分からなければスキップを押してください。",
         toast_profile_done:"{company} のプロフィールができました — 確認して練習室へ入ってください。",
@@ -1610,6 +1621,119 @@
           .catch(function(){ if (to) clearTimeout(to); entry.score.aiPending = false; });
       }
 
+      /* ---------- AI company set: dossier + 8 tailored questions ----------
+         One call to the same backend at intake confirmation. The prompt is built
+         ONLY from what the user typed in, and the system prompt forbids inventing
+         company facts — anything not provided must land in dossier.unknowns.
+         Any failure (offline, timeout 25s, unparseable JSON) silently falls back
+         to the template profile/question engine; only a brief note is shown. */
+      function setGenLoading(on){
+        var btn = $("btn-start-room"), st = $("ai-gen-status");
+        if (!btn || !st) return;
+        if (on){
+          btn.disabled = true;
+          btn.textContent = T("ai_gen_loading");
+          st.className = "ai-status show load";
+          st.innerHTML = "<span class='spin' aria-hidden='true'></span>" + esc(T("ai_gen_loading"));
+        } else {
+          btn.disabled = false;
+          btn.textContent = T("btn_start_room");
+          st.className = "ai-status"; st.innerHTML = "";
+        }
+      }
+      function showGenFallback(){
+        var st = $("ai-gen-status"); if (!st) return;
+        st.className = "ai-status show fallback";
+        st.textContent = T("ai_fallback_note");
+      }
+      function renderAiBlock(){
+        var box = $("ai-block"); if (!box) return;
+        if (!state.aiSet){ box.style.display = "none"; box.innerHTML = ""; return; }
+        var d = state.aiSet.dossier;
+        var html = '<div style="margin-bottom:4px"><span class="tag red">AI</span><span style="font-weight:700;font-size:15px"> ' + esc(T("ai_dossier_badge")) + '</span></div>';
+        html += '<div class="mini" style="padding:0;margin-top:10px"><h4>' + esc(T("ai_summary_h")) + '</h4><p>' + esc(d.summary) + '</p></div>';
+        if (d.focus_points.length) html += '<div class="mini" style="padding:0;margin-top:14px"><h4>' + esc(T("ai_focus_h")) + '</h4><ul>' + d.focus_points.map(function(f){ return "<li>" + esc(f) + "</li>"; }).join("") + '</ul></div>';
+        if (d.unknowns.length) html += '<div class="mini" style="padding:0;margin-top:14px"><h4>' + esc(T("ai_unknown_h")) + '</h4><ul>' + d.unknowns.map(function(u){ return "<li>" + esc(u) + "</li>"; }).join("") + '</ul></div>';
+        html += '<div class="mini" style="padding:0;margin-top:14px"><h4>' + esc(T("ai_questions_h")) + '</h4><ul>' + state.aiSet.questions.map(function(q){ return "<li><b class='jp'>" + esc(q.topic) + "</b> — <span class='jp'>" + esc(q.jp) + "</span></li>"; }).join("") + '</ul></div>';
+        box.innerHTML = html;
+        box.style.display = "block";
+      }
+      function genAiSet(p){
+        var seq = ++state.genSeq;
+        state.aiSet = null;
+        renderAiBlock();
+        if (!window.fetch){ showGenFallback(); return; }
+        setGenLoading(true);
+        var plan = PLANS.vi[p.round] || PLANS.vi.hr;
+        var topics = [];
+        for (var i=0;i<plan.length;i++){ for (var j=0;j<plan[i].count;j++) topics.push(plan[i].topic); }
+        var roundJp = { hr:"一次面接（人事担当者）", tech:"二次面接（現場の部門責任者）", final:"最終面接（役員）" }[p.round] || p.round;
+        var langName = { vi:"ベトナム語", en:"英語", zh:"中国語（簡体字）", ko:"韓国語", ja:"日本語" }[LANG] || "ベトナム語";
+        var sys = "あなたは日本の就職・転職面接の専門コーチです。候補者が入力した情報だけを使って、特定の企業向けの面接ドシエと質問セットを作成します。厳密なルール：候補者が提供した情報のみを使用すること。企業のサービス・事業内容・所在地・数字・理念・制度・社風など、提供されていない事実を絶対に創作しないこと。提供されていない重要事項は推測で埋めず、dossier.unknowns に入れること。出力は JSON オブジェクトのみ。マークダウンのコードフェンスや説明文は一切付けないこと。";
+        var prompt = [
+          "以下の候補者入力をもとに、この企業専用の面接ドシエと質問8問を作成してください。",
+          "",
+          "【候補者入力】",
+          "企業名: " + p.company,
+          "業種: " + (IND_JP[p.industry] || p.industry),
+          "応募ポジション: " + p.position,
+          "面接段階: " + roundJp,
+          "候補者の日本語レベル: " + p.level,
+          "候補者の国籍: " + (p.country || "（未入力）"),
+          "候補者の経験: " + (p.exp || "（未入力）"),
+          "候補者の弱点・不安: " + (p.weak || "（未入力）"),
+          "企業ウェブサイトURL（候補者が入力した文字列。その中身はこちらでは取得できていない）: " + (p.weblink || "（未入力）"),
+          "求人票（JD）URL（同上、文字列のみ）: " + (p.jdlink || "（未入力）"),
+          "JDから抽出されたキーワード: " + (p.stacks.length ? p.stacks.join("、") : "（なし）"),
+          "JD本文（候補者が貼り付けたもの）:",
+          (p.jdtext || "（未入力）").slice(0, 3000),
+          "",
+          "【質問の構成】質問は8問ちょうど。トピックは次の順序と配分をそのまま使うこと: " + topics.join("、"),
+          "各質問は、企業名「" + p.company + "」を具体的に入れ、JD本文・候補者の経験・弱点など、入力された実際の内容に触れること。質問文は実際の面接官が話す自然で丁寧な日本語にすること。",
+          "",
+          "【出力形式】次の JSON オブジェクトのみを返すこと:",
+          '{"dossier":{"summary":"<企業の要約。提供情報の範囲内でのみ、' + langName + "で書く" + '>","focus_points":["<' + langName + "で、この企業が深掘りしそうな点" + '>"],"unknowns":["<' + langName + "で、提供されておらず不明な点" + '>"]},"questions":[{"topic":"<指定トピック名>","question_ja":"<日本語の質問文>","translation":"<' + langName + 'への翻訳>","hint":"<' + langName + 'で短い回答ヒント>"}]}',
+          "questions は8件。topic は指定したトピック名をそのまま使うこと。summary は3〜5文、focus_points は3〜5件、unknowns は判明していない重要事項を正直に挙げること。"
+        ].join("\n");
+        var ctrl = ("AbortController" in window) ? new AbortController() : null;
+        var to = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 25000) : null;
+        fetch(AI_API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ prompt: prompt, system: sys }), signal: ctrl ? ctrl.signal : undefined })
+          .then(function(r){ if (to) clearTimeout(to); if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+          .then(function(data){
+            if (seq !== state.genSeq) return;
+            var raw = (data && data.text) || "";
+            var m = raw.match(/\{[\s\S]*\}/);
+            if (!m) throw new Error("no json");
+            var g = JSON.parse(m[0]);
+            var d = g.dossier || {};
+            if (typeof d.summary !== "string" || !d.summary.trim()) throw new Error("bad dossier");
+            if (!Array.isArray(g.questions)) throw new Error("bad questions");
+            var qs = [];
+            for (var i=0;i<g.questions.length && qs.length < 8;i++){
+              var q = g.questions[i] || {};
+              var topic = String(q.topic || "").trim(), jp = String(q.question_ja || "").trim();
+              if (!topic || !jp) continue;
+              var o = { topic: topic, jp: jp, vi: "", hint: String(q.hint || "").trim(), ai: true };
+              var tr = String(q.translation || "").trim();
+              o.vi = tr;
+              if (LANG === "en") o.en = tr; else if (LANG === "zh") o.zh = tr; else if (LANG === "ko") o.ko = tr; else if (LANG === "ja") o.ja = tr;
+              qs.push(o);
+            }
+            if (qs.length < 6) throw new Error("too few questions");
+            var clean = function(arr){ var out = []; if (Array.isArray(arr)) for (var i=0;i<arr.length;i++){ var s = String(arr[i] || "").trim(); if (s) out.push(s); } return out; };
+            state.aiSet = { dossier: { summary: d.summary.trim(), focus_points: clean(d.focus_points), unknowns: clean(d.unknowns) }, questions: qs };
+            setGenLoading(false);
+            renderAiBlock();
+          })
+          .catch(function(){
+            if (to) clearTimeout(to);
+            if (seq !== state.genSeq) return;
+            state.aiSet = null;
+            setGenLoading(false);
+            showGenFallback();
+          });
+      }
+
       /* ---------- interview room ---------- */
       function fmtTime(s){ var m = Math.floor(s/60), ss = s%60; return (m<10?"0":"")+m+":"+(ss<10?"0":"")+ss; }
       function startTimer(){
@@ -1628,7 +1752,7 @@
         var q = state.questions[state.idx];
         if (!q){ finishSession(); return; }
         state.fbIdx = -1;
-        $("q-topic").textContent = q.topic + " — " + F("q_count", { n: state.idx+1, t: state.questions.length });
+        $("q-topic").textContent = q.topic + (q.ai ? " · AI" : "") + " — " + F("q_count", { n: state.idx+1, t: state.questions.length });
         $("q-text").textContent = q.jp;
         $("q-vi").textContent = explainFor(q);
         $("q-count").textContent = F("q_count", { n: state.idx+1, t: state.questions.length });
@@ -1747,10 +1871,11 @@
         renderProfile(p);
         go("profile");
         toast(F("toast_profile_done", { company: p.company }));
+        genAiSet(p);
       });
       $("btn-start-room").addEventListener("click", function(){
         if (!state.profile) return;
-        state.questions = buildQuestions(state.profile);
+        state.questions = (state.aiSet && state.aiSet.questions && state.aiSet.questions.length >= 6) ? state.aiSet.questions : buildQuestions(state.profile);
         state.idx = 0; state.answers = [];
         $("transcript").innerHTML = "";
         state.startedAt = new Date();
